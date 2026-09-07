@@ -42,11 +42,6 @@ function LoginForm() {
     }
   };
 
-  const fillCredentials = (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-  };
-
   return (
     <div className="max-w-md w-full space-y-8 bg-white p-8 border border-gray-200 rounded-lg shadow-sm">
       <div className="text-center">
@@ -80,7 +75,7 @@ function LoginForm() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
-            placeholder="e.g. admin or doctor_name"
+            placeholder="Enter username"
           />
         </div>
 
@@ -111,27 +106,6 @@ function LoginForm() {
           {loading ? 'Authenticating...' : 'Sign In'}
         </button>
       </form>
-
-      <div className="mt-6 border-t border-gray-200 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">
-          Default Administrator Credentials
-        </p>
-        <div className="bg-gray-50 p-3 rounded border border-gray-200 text-xs text-gray-700 flex justify-between items-center">
-          <div>
-            <span className="font-mono font-medium text-gray-900">admin</span> / <span className="font-mono font-medium text-gray-900">admin123</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => fillCredentials('admin', 'admin123')}
-            className="text-xs text-blue-600 hover:underline font-medium"
-          >
-            Auto-fill
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-gray-400 text-center">
-          Role logins automatically redirect to /doctor, /bills, /pharmacy, or /admin.
-        </p>
-      </div>
     </div>
   );
 }
