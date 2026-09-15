@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, batch_number, expiry_date, quantity, supplier } = body;
+    const { name, batch_number, expiry_date, quantity, supplier, rate } = body;
 
     if (!name || !batch_number || !expiry_date || !quantity) {
       return NextResponse.json(
@@ -31,12 +31,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const unitRate = rate !== undefined && rate !== null && rate !== '' ? parseFloat(rate) : 0.0;
+    if (isNaN(unitRate) || unitRate < 0) {
+      return NextResponse.json(
+        { error: 'Rate must be a non-negative number.' },
+        { status: 400 }
+      );
+    }
+
     const trimmedName = name.trim();
     const trimmedBatch = batch_number.trim();
 
     // Check if matching medicine (same name and batch number) already exists
     const existing = await query(
-      `SELECT medicine_id, current_stock FROM medicines
+      `SELECT medicine_id, current_stock, rate FROM medicines
        WHERE LOWER(name) = LOWER($1) AND batch_number = $2`,
       [trimmedName, trimmedBatch]
     );
@@ -47,18 +55,19 @@ export async function POST(request: Request) {
     if (existing.rows.length > 0) {
       medicineId = existing.rows[0].medicine_id;
       newStock = existing.rows[0].current_stock + qty;
+      const updatedRate = unitRate > 0 ? unitRate : (parseFloat(existing.rows[0].rate) || 0.0);
       await query(
         `UPDATE medicines
-         SET current_stock = $1, expiry_date = $2
-         WHERE medicine_id = $3`,
-        [newStock, expiry_date, medicineId]
+         SET current_stock = $1, expiry_date = $2, rate = $3
+         WHERE medicine_id = $4`,
+        [newStock, expiry_date, updatedRate, medicineId]
       );
     } else {
       const inserted = await query(
-        `INSERT INTO medicines (name, batch_number, expiry_date, current_stock)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO medicines (name, batch_number, expiry_date, current_stock, rate)
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING medicine_id, current_stock`,
-        [trimmedName, trimmedBatch, expiry_date, qty]
+        [trimmedName, trimmedBatch, expiry_date, qty, unitRate]
       );
       medicineId = inserted.rows[0].medicine_id;
       newStock = inserted.rows[0].current_stock;

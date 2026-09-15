@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS bills (
   amount NUMERIC(10, 2) NOT NULL,
   payment_mode VARCHAR(50) NOT NULL,
   status VARCHAR(20) NOT NULL DEFAULT 'Paid',
-  handled_by INT REFERENCES users(user_id)
+  handled_by INT REFERENCES users(user_id),
+  items JSONB
 );
 
 CREATE TABLE IF NOT EXISTS medicines (
@@ -68,7 +69,8 @@ CREATE TABLE IF NOT EXISTS medicines (
   name VARCHAR(255) NOT NULL,
   batch_number VARCHAR(100) NOT NULL,
   expiry_date DATE NOT NULL,
-  current_stock INT NOT NULL DEFAULT 0
+  current_stock INT NOT NULL DEFAULT 0,
+  rate NUMERIC(10, 2) NOT NULL DEFAULT 0.00
 );
 
 CREATE TABLE IF NOT EXISTS medicine_transactions (
@@ -179,6 +181,18 @@ export async function initDb() {
       // Table or index may already exist
       console.warn('DB init notice:', err.message);
     }
+  }
+
+  // Ensure new columns exist on existing tables
+  try {
+    await driver.query('ALTER TABLE medicines ADD COLUMN IF NOT EXISTS rate NUMERIC(10, 2) NOT NULL DEFAULT 0.00;');
+  } catch (e: any) {
+    // ignore
+  }
+  try {
+    await driver.query('ALTER TABLE bills ADD COLUMN IF NOT EXISTS items JSONB;');
+  } catch (e: any) {
+    // ignore
   }
 
   // 2. Seed default admin if not existing

@@ -40,6 +40,7 @@ interface MedicineSummary {
   batch_number: string;
   expiry_date: string;
   current_stock: number;
+  rate?: string | number;
 }
 
 export default function AdminPage() {
@@ -533,6 +534,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-left">Medicine Name</th>
                       <th className="px-4 py-3 text-left">Batch Number</th>
                       <th className="px-4 py-3 text-left">Expiry Date</th>
+                      <th className="px-4 py-3 text-left">Unit Rate</th>
                       <th className="px-4 py-3 text-left">Current Stock</th>
                       <th className="px-4 py-3 text-left">Alert</th>
                     </tr>
@@ -545,6 +547,7 @@ export default function AdminPage() {
                           <td className="px-4 py-3 font-semibold text-gray-900">{m.name}</td>
                           <td className="px-4 py-3 font-mono text-gray-600">{m.batch_number}</td>
                           <td className="px-4 py-3 text-gray-700">{new Date(m.expiry_date).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">₹{parseFloat(String(m.rate || 0)).toFixed(2)}</td>
                           <td className="px-4 py-3 font-bold text-gray-900">{m.current_stock}</td>
                           <td className="px-4 py-3">
                             {isLow ? (

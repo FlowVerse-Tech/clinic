@@ -45,11 +45,12 @@ CREATE TABLE IF NOT EXISTS bills (
   bill_id SERIAL PRIMARY KEY,
   patient_id VARCHAR(20) NOT NULL REFERENCES patients(patient_id) ON DELETE CASCADE,
   date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  billing_type VARCHAR(50) NOT NULL, -- 'Consultation' or 'Pharmacy'
+  billing_type VARCHAR(50) NOT NULL, -- 'Consultation', 'Pharmacy', or 'Consultation & Pharmacy'
   amount NUMERIC(10, 2) NOT NULL,
   payment_mode VARCHAR(50) NOT NULL, -- 'Cash', 'Card', 'UPI', etc.
   status VARCHAR(20) NOT NULL DEFAULT 'Paid', -- 'Paid' or 'Pending'
-  handled_by INT REFERENCES users(user_id)
+  handled_by INT REFERENCES users(user_id),
+  items JSONB
 );
 
 CREATE TABLE IF NOT EXISTS medicines (
@@ -57,7 +58,8 @@ CREATE TABLE IF NOT EXISTS medicines (
   name VARCHAR(255) NOT NULL,
   batch_number VARCHAR(100) NOT NULL,
   expiry_date DATE NOT NULL,
-  current_stock INT NOT NULL DEFAULT 0
+  current_stock INT NOT NULL DEFAULT 0,
+  rate NUMERIC(10, 2) NOT NULL DEFAULT 0.00
 );
 
 CREATE TABLE IF NOT EXISTS medicine_transactions (

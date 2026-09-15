@@ -9,6 +9,7 @@ interface Medicine {
   batch_number: string;
   expiry_date: string;
   current_stock: number;
+  rate?: string | number;
 }
 
 export default function PharmacyPage() {
@@ -27,6 +28,7 @@ export default function PharmacyPage() {
     expiry_date: '',
     quantity: '',
     supplier: '',
+    rate: '',
   });
   const [inwardLoading, setInwardLoading] = useState(false);
   const [inwardMessage, setInwardMessage] = useState({ type: '', text: '' });
@@ -97,6 +99,7 @@ export default function PharmacyPage() {
         expiry_date: '',
         quantity: '',
         supplier: '',
+        rate: '',
       });
       loadMedicines();
     } catch (err: any) {
@@ -263,6 +266,7 @@ export default function PharmacyPage() {
                       <th className="px-4 py-3 text-left">Medicine Name</th>
                       <th className="px-4 py-3 text-left">Batch Number</th>
                       <th className="px-4 py-3 text-left">Expiry Date</th>
+                      <th className="px-4 py-3 text-left">Unit Rate</th>
                       <th className="px-4 py-3 text-left">Current Stock</th>
                       <th className="px-4 py-3 text-left">Stock Status</th>
                     </tr>
@@ -289,6 +293,9 @@ export default function PharmacyPage() {
                               {new Date(m.expiry_date).toLocaleDateString()}
                               {isExpired && ' (Expired)'}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">
+                            ₹{parseFloat(String(m.rate || 0)).toFixed(2)}
                           </td>
                           <td className="px-4 py-3">
                             <span
@@ -412,6 +419,22 @@ export default function PharmacyPage() {
                     onChange={(e) => setInwardForm({ ...inwardForm, quantity: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:outline-none font-semibold"
                   />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-gray-700 uppercase mb-1">
+                    Rate / Unit Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 10.00"
+                    value={inwardForm.rate}
+                    onChange={(e) => setInwardForm({ ...inwardForm, rate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:ring-2 focus:ring-amber-500 focus:outline-none font-semibold"
+                  />
+                  <span className="text-[11px] text-gray-500">Price per single unit (used for billing)</span>
                 </div>
 
                 <div>

@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
     const res = await query(
-      `SELECT medicine_id, name, batch_number, expiry_date, current_stock
+      `SELECT medicine_id, name, batch_number, expiry_date, current_stock, rate
        FROM medicines
        ORDER BY expiry_date ASC, name ASC`
     );

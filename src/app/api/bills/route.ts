@@ -54,10 +54,31 @@ export async function GET(request: Request) {
           pendingAmount += amt;
         }
 
-        if (bill.billing_type === 'Consultation') {
-          consultationAmount += amt;
-        } else if (bill.billing_type === 'Pharmacy') {
-          pharmacyAmount += amt;
+        // Check if bill has structured items
+        let parsedItems: any[] = [];
+        if (typeof bill.items === 'string') {
+          try { parsedItems = JSON.parse(bill.items); } catch(e) {}
+        } else if (Array.isArray(bill.items)) {
+          parsedItems = bill.items;
+        }
+
+        if (parsedItems && parsedItems.length > 0) {
+          for (const it of parsedItems) {
+            const itemTot = parseFloat(it.total) || 0;
+            if (it.type === 'consultation') {
+              consultationAmount += itemTot;
+            } else {
+              pharmacyAmount += itemTot;
+            }
+          }
+        } else {
+          if (bill.billing_type === 'Consultation') {
+            consultationAmount += amt;
+          } else if (bill.billing_type === 'Pharmacy') {
+            pharmacyAmount += amt;
+          } else {
+            consultationAmount += amt;
+          }
         }
       }
 
@@ -104,19 +125,26 @@ export async function POST(request: Request) {
   // Doctor, Receptionist, Admin can create bills
   try {
     const body = await request.json();
-    const { patient_id, billing_type, amount, payment_mode, status } = body;
+    const { patient_id, billing_type, amount, payment_mode, status, items } = body;
 
-    if (!patient_id || !billing_type || amount === undefined || !payment_mode) {
+    if (!patient_id || !payment_mode) {
       return NextResponse.json(
-        { error: 'Patient ID, billing type, amount, and payment mode are required.' },
+        { error: 'Patient ID and payment mode are required.' },
         { status: 400 }
       );
     }
 
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount < 0) {
+    // Calculate or validate total amount
+    let numAmount = 0;
+    if (Array.isArray(items) && items.length > 0) {
+      numAmount = items.reduce((sum: number, it: any) => sum + (parseFloat(it.total) || 0), 0);
+    } else if (amount !== undefined) {
+      numAmount = parseFloat(amount);
+    }
+
+    if (isNaN(numAmount) || numAmount <= 0) {
       return NextResponse.json(
-        { error: 'Please enter a valid bill amount.' },
+        { error: 'Please enter valid bill items with a total amount greater than 0.' },
         { status: 400 }
       );
     }
@@ -130,20 +158,38 @@ export async function POST(request: Request) {
       );
     }
 
+    // Determine billing_type if not provided
+    let finalBillingType = billing_type;
+    if (Array.isArray(items) && items.length > 0) {
+      const hasConsultation = items.some((it: any) => it.type === 'consultation');
+      const hasMedicine = items.some((it: any) => it.type === 'medicine');
+      if (hasConsultation && hasMedicine) {
+        finalBillingType = 'Consultation & Pharmacy';
+      } else if (hasConsultation) {
+        finalBillingType = 'Consultation';
+      } else {
+        finalBillingType = 'Pharmacy';
+      }
+    } else if (!finalBillingType) {
+      finalBillingType = 'Consultation';
+    }
+
     const billStatus = status === 'Pending' ? 'Pending' : 'Paid';
+    const itemsJson = items && Array.isArray(items) ? JSON.stringify(items) : null;
 
     const res = await query(
       `INSERT INTO bills (
-        patient_id, billing_type, amount, payment_mode, status, handled_by, date
-      ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+        patient_id, billing_type, amount, payment_mode, status, handled_by, items, date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
         patient_id,
-        billing_type,
+        finalBillingType,
         numAmount,
         payment_mode,
         billStatus,
         user.userId,
+        itemsJson,
       ]
     );
 
