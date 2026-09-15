@@ -29,6 +29,8 @@ interface Bill {
   patient_id: string;
   patient_name?: string;
   phone_number?: string;
+  age?: number;
+  sex?: string;
   date: string;
   billing_type: string;
   amount: string;
@@ -337,6 +339,9 @@ export default function BillsPage() {
         type: 'success',
         text: `Bill #${data.bill.bill_id} (₹${grandTotal.toFixed(2)}) generated successfully!`,
       });
+
+      // Auto-open newly generated invoice receipt modal
+      setReceiptModalBill(data.bill);
 
       // Reset bill items to default consultation item
       setBillItems([
@@ -1025,70 +1030,187 @@ export default function BillsPage() {
           </div>
         )}
 
-        {/* ITEMIZED RECEIPT MODAL */}
+        {/* ITEMIZED INVOICE / RECEIPT MODAL */}
         {receiptModalBill && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border border-gray-200 space-y-4">
-              {/* Modal Header */}
-              <div className="flex justify-between items-start border-b border-gray-200 pb-3">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">DVS Clinic - Invoice Receipt</h3>
-                  <p className="text-xs text-gray-500">
-                    Official patient billing receipt &amp; breakdown
-                  </p>
-                </div>
-                <button
-                  onClick={() => setReceiptModalBill(null)}
-                  className="text-gray-400 hover:text-gray-600 p-1 text-base font-bold"
-                >
-                  ✕
-                </button>
-              </div>
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:bg-transparent print:static">
+            <style jsx global>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-invoice, #printable-invoice * {
+                  visibility: visible !important;
+                }
+                #printable-invoice {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  margin: 0 !important;
+                  padding: 28px !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  background: white !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
 
-              {/* Receipt Meta */}
-              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-gray-500 block">Bill Number:</span>
-                  <span className="font-mono font-bold text-gray-900">#{receiptModalBill.bill_id}</span>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-200 overflow-hidden flex flex-col my-auto">
+              <div id="printable-invoice" className="p-6 sm:p-8 space-y-6">
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-gray-900 uppercase">
+                      INVOICE
+                    </h2>
+                    <p className="text-xs font-bold text-teal-700 tracking-wider uppercase mt-1">
+                      DVS CLINIC &bull; MEDICAL BILLING RECEIPT
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setReceiptModalBill(null)}
+                    className="no-print text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    title="Close"
+                  >
+                    <span className="text-2xl font-semibold leading-none">&times;</span>
+                  </button>
                 </div>
-                <div>
-                  <span className="text-gray-500 block">Date &amp; Time:</span>
-                  <span className="font-semibold text-gray-900">
-                    {new Date(receiptModalBill.date).toLocaleString()}
-                  </span>
+
+                {/* Thin Accent-Color Rule under Header */}
+                <div className="h-1 w-full bg-teal-600 rounded-full" />
+
+                {/* Info Row (two columns, left-bordered with accent color) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Left Column: PATIENT INFORMATION */}
+                  <div className="border-l-4 border-teal-600 bg-slate-50/70 p-4 rounded-r-lg space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 border-b border-gray-200/60 pb-1">
+                      PATIENT INFORMATION
+                    </h3>
+                    <div className="space-y-1 text-xs">
+                      <div>
+                        <span className="text-gray-400 text-[11px] block">Name</span>
+                        <span className="font-bold text-gray-900 text-sm">
+                          {receiptModalBill.patient_name || selectedPatient?.name || 'Patient'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline pt-1">
+                        <span className="text-gray-500 font-medium">Patient ID:</span>
+                        <span className="font-mono font-semibold text-gray-900">
+                          {receiptModalBill.patient_id}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Age / Sex:</span>
+                        <span className="font-semibold text-gray-900">
+                          {(receiptModalBill.age ?? selectedPatient?.age)
+                            ? `${receiptModalBill.age ?? selectedPatient?.age} Yrs`
+                            : '—'} / {receiptModalBill.sex || selectedPatient?.sex || '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Phone:</span>
+                        <span className="font-semibold text-gray-900">
+                          {receiptModalBill.phone_number || selectedPatient?.phone_number || '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: CLINIC / BILL INFORMATION */}
+                  <div className="border-l-4 border-teal-600 bg-slate-50/70 p-4 rounded-r-lg space-y-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 border-b border-gray-200/60 pb-1">
+                      CLINIC / BILL INFORMATION
+                    </h3>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Bill Number:</span>
+                        <span className="font-mono font-extrabold text-teal-900 text-sm">
+                          #{receiptModalBill.bill_id}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Date &amp; Time:</span>
+                        <span className="font-semibold text-gray-900">
+                          {new Date(receiptModalBill.date).toLocaleString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Payment Mode:</span>
+                        <span className="font-semibold text-gray-900">
+                          {receiptModalBill.payment_mode}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-0.5">
+                        <span className="text-gray-500 font-medium">Payment Status:</span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
+                            receiptModalBill.status === 'Paid'
+                              ? 'bg-teal-100 text-teal-800 border border-teal-300'
+                              : 'bg-amber-100 text-amber-800 border border-amber-300'
+                          }`}
+                        >
+                          {receiptModalBill.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-500 block">Patient Name:</span>
-                  <span className="font-semibold text-gray-900">
-                    {receiptModalBill.patient_name || selectedPatient?.name || 'Patient'}
-                  </span>
-                  <span className="font-mono text-blue-700 block text-[11px]">
-                    ID: {receiptModalBill.patient_id}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Payment Mode &amp; Status:</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="font-medium text-gray-800">{receiptModalBill.payment_mode}</span>
-                    <span
-                      className={`px-2 py-0.2 rounded text-[10px] font-bold ${
-                        receiptModalBill.status === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {receiptModalBill.status}
+
+                {/* Summary Strip (4 boxes in a row, like a stat bar) */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">
+                      BILL NUMBER
+                    </span>
+                    <span className="font-mono font-bold text-gray-900 text-sm mt-0.5 block">
+                      #{receiptModalBill.bill_id}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">
+                      DATE
+                    </span>
+                    <span className="font-semibold text-gray-900 text-xs sm:text-sm mt-0.5 block">
+                      {new Date(receiptModalBill.date).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">
+                      PAYMENT MODE
+                    </span>
+                    <span className="font-semibold text-gray-900 text-sm mt-0.5 block">
+                      {receiptModalBill.payment_mode}
+                    </span>
+                  </div>
+
+                  <div className="bg-teal-50/90 border-2 border-teal-500 rounded-lg p-3 text-center">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 block">
+                      AMOUNT DUE / TOTAL
+                    </span>
+                    <span className="font-extrabold text-teal-900 text-base sm:text-lg mt-0.5 block">
+                      ₹{parseFloat(receiptModalBill.amount).toFixed(2)}
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Itemized Breakdown Table */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                  Line Items
-                </h4>
-
+                {/* Line Items Table */}
                 {(() => {
                   let itemsList: any[] = [];
                   if (typeof receiptModalBill.items === 'string') {
@@ -1099,87 +1221,124 @@ export default function BillsPage() {
                     itemsList = receiptModalBill.items;
                   }
 
-                  if (itemsList && itemsList.length > 0) {
-                    return (
-                      <div className="overflow-x-auto border border-gray-200 rounded-md">
-                        <table className="min-w-full divide-y divide-gray-200 text-xs">
-                          <thead className="bg-gray-50 text-gray-600 font-semibold uppercase">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Item Description</th>
-                              <th className="px-3 py-2 text-center">Qty</th>
-                              <th className="px-3 py-2 text-right">Rate</th>
-                              <th className="px-3 py-2 text-right">Total</th>
+                  const subtotal = itemsList.length > 0
+                    ? itemsList.reduce((sum: number, it: any) => sum + (parseFloat(it.total) || 0), 0)
+                    : parseFloat(receiptModalBill.amount) || 0;
+
+                  return (
+                    <div>
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <table className="w-full text-left border-collapse text-xs">
+                          <thead>
+                            <tr className="bg-gray-100/90 border-b border-gray-200 text-gray-700 font-bold uppercase tracking-wider text-[11px]">
+                              <th className="py-3 px-3.5">ITEM / DESCRIPTION</th>
+                              <th className="py-3 px-3 text-center">QTY</th>
+                              <th className="py-3 px-3.5 text-right">RATE</th>
+                              <th className="py-3 px-3.5 text-right">TOTAL</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 bg-white">
-                            {itemsList.map((it: any, idx: number) => (
-                              <tr key={idx} className="hover:bg-gray-50">
-                                <td className="px-3 py-2">
-                                  <div className="font-semibold text-gray-900">{it.name}</div>
-                                  <span
-                                    className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
-                                      it.type === 'consultation'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-purple-100 text-purple-700'
-                                    }`}
-                                  >
-                                    {it.type === 'consultation' ? 'Consultation' : 'Medicine'}
+                            {itemsList.length > 0 ? (
+                              itemsList.map((it: any, idx: number) => (
+                                <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50/60' : 'bg-white'}>
+                                  <td className="py-3 px-3.5">
+                                    <div className="font-semibold text-gray-900 text-xs sm:text-sm">
+                                      {it.name || 'General Item'}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                      <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 uppercase tracking-wider">
+                                        {it.type === 'consultation' ? 'Consultation' : 'Medicine'}
+                                      </span>
+                                      {it.batch_number && (
+                                        <span className="inline-block text-[10px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                          Batch: {it.batch_number}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center font-bold text-gray-900">
+                                    {it.quantity}
+                                  </td>
+                                  <td className="py-3 px-3.5 text-right text-gray-600 font-mono">
+                                    ₹{parseFloat(it.rate || 0).toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-3.5 text-right font-bold text-gray-900 font-mono">
+                                    ₹{parseFloat(it.total || 0).toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td className="py-3.5 px-3.5">
+                                  <div className="font-semibold text-gray-900">
+                                    {receiptModalBill.billing_type} Services
+                                  </div>
+                                  <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200 mt-1 uppercase tracking-wider">
+                                    {receiptModalBill.billing_type}
                                   </span>
-                                  {it.batch_number && (
-                                    <span className="text-[10px] text-gray-400 ml-1.5">
-                                      Batch: {it.batch_number}
-                                    </span>
-                                  )}
                                 </td>
-                                <td className="px-3 py-2 text-center font-bold text-gray-800">
-                                  {it.quantity}
+                                <td className="py-3.5 px-3 text-center font-bold text-gray-900">1</td>
+                                <td className="py-3.5 px-3.5 text-right text-gray-600 font-mono">
+                                  ₹{parseFloat(receiptModalBill.amount).toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 text-right text-gray-600">
-                                  ₹{parseFloat(it.rate || 0).toFixed(2)}
-                                </td>
-                                <td className="px-3 py-2 text-right font-bold text-gray-900">
-                                  ₹{parseFloat(it.total || 0).toFixed(2)}
+                                <td className="py-3.5 px-3.5 text-right font-bold text-gray-900 font-mono">
+                                  ₹{parseFloat(receiptModalBill.amount).toFixed(2)}
                                 </td>
                               </tr>
-                            ))}
+                            )}
                           </tbody>
                         </table>
                       </div>
-                    );
-                  } else {
-                    return (
-                      <div className="p-3 bg-gray-50 border border-gray-200 rounded text-xs flex justify-between items-center">
-                        <span className="font-medium text-gray-700">
-                          {receiptModalBill.billing_type} Fee
-                        </span>
-                        <span className="font-bold text-gray-900">₹{receiptModalBill.amount}</span>
+
+                      {/* Totals Section (bottom right, aligned like a subtotal block) */}
+                      <div className="flex justify-end pt-4">
+                        <div className="w-full sm:w-80 space-y-2.5">
+                          <div className="flex justify-between items-center text-xs text-gray-600 px-2">
+                            <span className="font-semibold uppercase tracking-wider text-gray-500">
+                              SUB TOTAL
+                            </span>
+                            <span className="font-mono font-bold text-gray-900">
+                              ₹{subtotal.toFixed(2)}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-xs text-gray-600 px-2">
+                            <span className="font-semibold uppercase tracking-wider text-gray-500">
+                              TAX (0%)
+                            </span>
+                            <span className="font-mono font-medium text-gray-400">₹0.00</span>
+                          </div>
+
+                          <div className="bg-teal-50/90 border-2 border-teal-600 rounded-xl p-3.5 flex justify-between items-center">
+                            <span className="text-xs sm:text-sm font-black text-teal-900 uppercase tracking-wider">
+                              TOTAL PAID / BILLED
+                            </span>
+                            <span className="text-xl sm:text-2xl font-black text-teal-950 font-mono">
+                              ₹{parseFloat(receiptModalBill.amount).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    );
-                  }
+                    </div>
+                  );
                 })()}
+
+                {/* NOTE: No footer, no hospital contact block at the bottom — end layout right after the total. */}
               </div>
 
-              {/* Total Amount Footer */}
-              <div className="border-t border-gray-200 pt-3 flex justify-between items-baseline">
-                <span className="text-sm font-bold text-gray-900 uppercase">Total Paid / Billed:</span>
-                <span className="text-2xl font-extrabold text-emerald-700">
-                  ₹{parseFloat(receiptModalBill.amount).toFixed(2)}
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
+              {/* Action Buttons (outside printable invoice, styled simply) */}
+              <div className="no-print bg-gray-50 border-t border-gray-200 px-6 py-3.5 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold rounded transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>🖨️ Print Receipt</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setReceiptModalBill(null)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                 >
                   Close
                 </button>

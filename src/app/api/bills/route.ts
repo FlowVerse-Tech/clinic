@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     if (patientId) {
       const res = await query(
-        `SELECT b.*, u.name as handled_by_name, p.name as patient_name
+        `SELECT b.*, u.name as handled_by_name, p.name as patient_name, p.age, p.sex, p.phone_number
          FROM bills b
          LEFT JOIN users u ON b.handled_by = u.user_id
          LEFT JOIN patients p ON b.patient_id = p.patient_id
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     if (dateFilter) {
       // Fetch bills for specific date
       const res = await query(
-        `SELECT b.*, u.name as handled_by_name, p.name as patient_name, p.phone_number
+        `SELECT b.*, u.name as handled_by_name, p.name as patient_name, p.age, p.sex, p.phone_number
          FROM bills b
          LEFT JOIN users u ON b.handled_by = u.user_id
          LEFT JOIN patients p ON b.patient_id = p.patient_id
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 
     // Default: recent 50 bills
     const res = await query(
-      `SELECT b.*, u.name as handled_by_name, p.name as patient_name
+      `SELECT b.*, u.name as handled_by_name, p.name as patient_name, p.age, p.sex, p.phone_number
        FROM bills b
        LEFT JOIN users u ON b.handled_by = u.user_id
        LEFT JOIN patients p ON b.patient_id = p.patient_id
@@ -149,14 +149,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Patient check
-    const pCheck = await query('SELECT patient_id FROM patients WHERE patient_id = $1', [patient_id]);
+    // Patient check and retrieve demographics
+    const pCheck = await query(
+      'SELECT patient_id, name, age, sex, phone_number FROM patients WHERE patient_id = $1',
+      [patient_id]
+    );
     if (pCheck.rows.length === 0) {
       return NextResponse.json(
         { error: 'Patient not found' },
         { status: 404 }
       );
     }
+    const patientObj = pCheck.rows[0];
 
     // Determine billing_type if not provided
     let finalBillingType = billing_type;
@@ -193,9 +197,72 @@ export async function POST(request: Request) {
       ]
     );
 
+    const newBill = res.rows[0];
+
+    // Deduct stock and record Outward transactions for billed medicines
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item && item.type === 'medicine') {
+          const qty = parseInt(item.quantity, 10);
+          if (isNaN(qty) || qty <= 0) continue;
+
+          let medId = item.medicine_id ? parseInt(item.medicine_id, 10) : null;
+
+          if (!medId && item.name) {
+            let findRes;
+            if (item.batch_number) {
+              findRes = await query(
+                `SELECT medicine_id, current_stock FROM medicines 
+                 WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND LOWER(TRIM(batch_number)) = LOWER(TRIM($2))
+                 LIMIT 1`,
+                [item.name.trim(), item.batch_number.trim()]
+              );
+            }
+            if (!findRes || findRes.rows.length === 0) {
+              findRes = await query(
+                `SELECT medicine_id, current_stock FROM medicines 
+                 WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) 
+                 ORDER BY current_stock DESC LIMIT 1`,
+                [item.name.trim()]
+              );
+            }
+            if (findRes && findRes.rows.length > 0) {
+              medId = findRes.rows[0].medicine_id;
+            }
+          }
+
+          if (medId) {
+            // Deduct stock
+            await query(
+              `UPDATE medicines 
+               SET current_stock = GREATEST(0, current_stock - $1) 
+               WHERE medicine_id = $2`,
+              [qty, medId]
+            );
+
+            // Log Outward transaction in medicine_transactions
+            await query(
+              `INSERT INTO medicine_transactions (medicine_id, type, quantity, date, patient_id)
+               VALUES ($1, 'Outward', $2, CURRENT_TIMESTAMP, $3)`,
+              [medId, qty, patient_id]
+            );
+          }
+        }
+      }
+    }
+
+    const billWithDetails = {
+      ...newBill,
+      patient_name: patientObj.name,
+      age: patientObj.age,
+      sex: patientObj.sex,
+      phone_number: patientObj.phone_number,
+      handled_by_name: user.name,
+    };
+
     return NextResponse.json({
       success: true,
-      bill: res.rows[0],
+      bill: billWithDetails,
     });
   } catch (err: any) {
     console.error('Error creating bill:', err);
