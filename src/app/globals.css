@@ -16,3 +16,10 @@ body {
 input, select, textarea {
   font-family: inherit;
 }
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+}

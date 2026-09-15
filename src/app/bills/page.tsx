@@ -414,6 +414,406 @@ export default function BillsPage() {
     }
   };
 
+  // Dedicated A4 Invoice Print Handler (isolates content, suppresses browser headers/footers, and formats to full A4 page)
+  const handlePrintReceipt = () => {
+    if (!receiptModalBill) return;
+
+    let itemsList: any[] = [];
+    if (typeof receiptModalBill.items === 'string') {
+      try {
+        itemsList = JSON.parse(receiptModalBill.items);
+      } catch (e) {}
+    } else if (Array.isArray(receiptModalBill.items)) {
+      itemsList = receiptModalBill.items;
+    }
+
+    const subtotal = itemsList.length > 0
+      ? itemsList.reduce((sum: number, it: any) => sum + (parseFloat(it.total) || 0), 0)
+      : parseFloat(receiptModalBill.amount) || 0;
+
+    const patientName = receiptModalBill.patient_name || selectedPatient?.name || 'Patient';
+    const patientId = receiptModalBill.patient_id;
+    const patientAge = receiptModalBill.age ?? selectedPatient?.age;
+    const patientSex = receiptModalBill.sex || selectedPatient?.sex || '—';
+    const patientPhone = receiptModalBill.phone_number || selectedPatient?.phone_number || '—';
+    const ageSexStr = (patientAge ? `${patientAge} Yrs` : '—') + ' / ' + patientSex;
+
+    const formattedDate = new Date(receiptModalBill.date).toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    const formattedDateTime = new Date(receiptModalBill.date).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const rowsHtml = itemsList.length > 0
+      ? itemsList
+          .map(
+            (it: any, idx: number) => `
+          <tr style="background-color: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 12px 14px; vertical-align: top;">
+              <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${it.name || 'General Item'}</div>
+              <div style="margin-top: 4px;">
+                <span style="display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #f0fdfa; color: #0d9488; border: 1px solid #99f6e4; text-transform: uppercase;">
+                  ${it.type === 'consultation' ? 'Consultation' : 'Medicine'}
+                </span>
+                ${
+                  it.batch_number
+                    ? `<span style="display: inline-block; font-size: 10px; font-family: monospace; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; margin-left: 6px;">
+                        Batch: ${it.batch_number}
+                      </span>`
+                    : ''
+                }
+              </div>
+            </td>
+            <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: #0f172a; font-size: 13px; vertical-align: middle;">
+              ${it.quantity}
+            </td>
+            <td style="padding: 12px 14px; text-align: right; color: #475569; font-family: monospace; font-size: 13px; vertical-align: middle;">
+              ₹${parseFloat(it.rate || 0).toFixed(2)}
+            </td>
+            <td style="padding: 12px 14px; text-align: right; font-weight: 700; color: #0f172a; font-family: monospace; font-size: 13px; vertical-align: middle;">
+              ₹${parseFloat(it.total || 0).toFixed(2)}
+            </td>
+          </tr>`
+          )
+          .join('')
+      : `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 14px;">
+            <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${receiptModalBill.billing_type} Services</div>
+            <span style="display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #f0fdfa; color: #0d9488; border: 1px solid #99f6e4; text-transform: uppercase; margin-top: 4px;">
+              ${receiptModalBill.billing_type}
+            </span>
+          </td>
+          <td style="padding: 14px; text-align: center; font-weight: 700; font-size: 13px;">1</td>
+          <td style="padding: 14px; text-align: right; color: #475569; font-family: monospace; font-size: 13px;">
+            ₹${parseFloat(receiptModalBill.amount).toFixed(2)}
+          </td>
+          <td style="padding: 14px; text-align: right; font-weight: 700; color: #0f172a; font-family: monospace; font-size: 13px;">
+            ₹${parseFloat(receiptModalBill.amount).toFixed(2)}
+          </td>
+        </tr>`;
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Invoice</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 20mm;
+      margin: 0 auto;
+      box-sizing: border-box;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+    }
+    .header-rule {
+      height: 4px;
+      width: 100%;
+      background-color: #0d9488;
+      border-radius: 2px;
+      margin-top: 14px;
+      margin-bottom: 22px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .info-card {
+      border-left: 4px solid #0d9488;
+      background-color: #f8fafc;
+      padding: 14px 16px;
+      border-radius: 0 8px 8px 0;
+    }
+    .info-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #115e59;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .info-val {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .stat-box {
+      border: 1px solid #e2e8f0;
+      background-color: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-box-highlight {
+      border: 2px solid #0d9488;
+      background-color: #f0fdfa;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+    .stat-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .stat-val {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      font-family: monospace;
+    }
+    .table-container {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 22px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-weight: 800;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 14px;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    .totals-area {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+    .totals-box {
+      width: 290px;
+    }
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 8px;
+      margin-bottom: 4px;
+    }
+    .totals-grand {
+      background-color: #f0fdfa;
+      border: 2px solid #0d9488;
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <div style="font-size: 32px; font-weight: 900; letter-spacing: -0.02em; text-transform: uppercase; color: #0f172a; line-height: 1;">
+          INVOICE
+        </div>
+        <div style="font-size: 12px; font-weight: 800; color: #0d9488; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 6px;">
+          DVS CLINIC &bull; MEDICAL BILLING RECEIPT
+        </div>
+      </div>
+      <div style="text-align: right;">
+        <span style="display: inline-block; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; background-color: #f0fdfa; color: #0d9488; border: 1px solid #99f6e4; text-transform: uppercase; letter-spacing: 0.05em;">
+          ORIGINAL RECEIPT
+        </span>
+      </div>
+    </div>
+
+    <div class="header-rule"></div>
+
+    <div class="grid-2">
+      <div class="info-card">
+        <div class="info-title">PATIENT INFORMATION</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Name</div>
+          <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${patientName}</div>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Patient ID:</span>
+          <span class="info-val" style="font-family: monospace;">${patientId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Age / Sex:</span>
+          <span class="info-val">${ageSexStr}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Phone:</span>
+          <span class="info-val">${patientPhone}</span>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-title">CLINIC / BILL INFORMATION</div>
+        <div class="info-row">
+          <span class="info-label">Bill Number:</span>
+          <span class="info-val" style="font-family: monospace; font-size: 14px; color: #0d9488;">#${receiptModalBill.bill_id}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Date & Time:</span>
+          <span class="info-val">${formattedDateTime}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Payment Mode:</span>
+          <span class="info-val">${receiptModalBill.payment_mode}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Payment Status:</span>
+          <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; ${
+            receiptModalBill.status === 'Paid'
+              ? 'background: #f0fdfa; color: #0d9488; border: 1px solid #99f6e4;'
+              : 'background: #fffbeb; color: #b45309; border: 1px solid #fde68a;'
+          }">
+            ${receiptModalBill.status}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="stat-box">
+        <span class="stat-title">BILL NUMBER</span>
+        <span class="stat-val">#${receiptModalBill.bill_id}</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-title">DATE</span>
+        <span class="stat-val" style="font-family: inherit; font-size: 13px;">${formattedDate}</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-title">PAYMENT MODE</span>
+        <span class="stat-val" style="font-family: inherit; font-size: 13px;">${receiptModalBill.payment_mode}</span>
+      </div>
+      <div class="stat-box-highlight">
+        <span class="stat-title" style="color: #0d9488;">AMOUNT DUE / TOTAL</span>
+        <span class="stat-val" style="color: #0f172a; font-size: 16px;">₹${parseFloat(receiptModalBill.amount).toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align: left;">ITEM / DESCRIPTION</th>
+            <th style="text-align: center; width: 60px;">QTY</th>
+            <th style="text-align: right; width: 100px;">RATE</th>
+            <th style="text-align: right; width: 110px;">TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="totals-area">
+      <div class="totals-box">
+        <div class="totals-row">
+          <span style="font-weight: 700; color: #64748b; text-transform: uppercase;">SUB TOTAL</span>
+          <span style="font-weight: 700; font-family: monospace; color: #0f172a;">₹${subtotal.toFixed(2)}</span>
+        </div>
+        <div class="totals-row">
+          <span style="font-weight: 700; color: #64748b; text-transform: uppercase;">TAX (0%)</span>
+          <span style="font-family: monospace; color: #94a3b8;">₹0.00</span>
+        </div>
+        <div class="totals-grand">
+          <span style="font-size: 13px; font-weight: 900; color: #115e59; text-transform: uppercase; letter-spacing: 0.05em;">
+            TOTAL PAID / BILLED
+          </span>
+          <span style="font-size: 22px; font-weight: 900; font-family: monospace; color: #0f172a;">
+            ₹${parseFloat(receiptModalBill.amount).toFixed(2)}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '100%';
+    iframe.style.bottom = '100%';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 2000);
+      }, 250);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar user={currentUser} />
@@ -1032,33 +1432,7 @@ export default function BillsPage() {
 
         {/* ITEMIZED INVOICE / RECEIPT MODAL */}
         {receiptModalBill && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 print:p-0 print:bg-transparent print:static">
-            <style jsx global>{`
-              @media print {
-                body * {
-                  visibility: hidden !important;
-                }
-                #printable-invoice, #printable-invoice * {
-                  visibility: visible !important;
-                }
-                #printable-invoice {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  max-width: 100% !important;
-                  margin: 0 !important;
-                  padding: 28px !important;
-                  box-shadow: none !important;
-                  border: none !important;
-                  background: white !important;
-                }
-                .no-print {
-                  display: none !important;
-                }
-              }
-            `}</style>
-
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-gray-200 overflow-hidden flex flex-col my-auto">
               <div id="printable-invoice" className="p-6 sm:p-8 space-y-6">
                 {/* Header */}
@@ -1330,7 +1704,7 @@ export default function BillsPage() {
               <div className="no-print bg-gray-50 border-t border-gray-200 px-6 py-3.5 flex justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintReceipt}
                   className="px-4 py-2 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 text-xs font-semibold rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>🖨️ Print Receipt</span>
