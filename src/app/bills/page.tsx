@@ -453,6 +453,13 @@ export default function BillsPage() {
       hour12: true,
     });
 
+    const rawDoctor = receiptModalBill.handled_by_name || (currentUser?.name ? currentUser.name : '');
+    const doctorName = rawDoctor
+      ? (rawDoctor.toLowerCase().startsWith('dr.') || rawDoctor.toLowerCase().startsWith('dr ')
+          ? rawDoctor
+          : `Dr. ${rawDoctor}`)
+      : 'Dr. DVS Specialist';
+
     const rowsHtml = itemsList.length > 0
       ? itemsList
           .map(
@@ -704,28 +711,22 @@ export default function BillsPage() {
       </div>
 
       <div class="info-card">
-        <div class="info-title">CLINIC / BILL INFORMATION</div>
-        <div class="info-row">
-          <span class="info-label">Bill Number:</span>
-          <span class="info-val" style="font-family: monospace; font-size: 14px; color: #0d9488;">#${receiptModalBill.bill_id}</span>
+        <div class="info-title">DOCTOR INFORMATION</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Doctor Name</div>
+          <div style="font-size: 15px; font-weight: 800; color: #0f172a;">${doctorName}</div>
         </div>
         <div class="info-row">
-          <span class="info-label">Date & Time:</span>
-          <span class="info-val">${formattedDateTime}</span>
+          <span class="info-label">Specialization:</span>
+          <span class="info-val">General Physician</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Payment Mode:</span>
-          <span class="info-val">${receiptModalBill.payment_mode}</span>
+          <span class="info-label">Department:</span>
+          <span class="info-val">OPD / General Medicine</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Payment Status:</span>
-          <span style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; ${
-            receiptModalBill.status === 'Paid'
-              ? 'background: #f0fdfa; color: #0d9488; border: 1px solid #99f6e4;'
-              : 'background: #fffbeb; color: #b45309; border: 1px solid #fde68a;'
-          }">
-            ${receiptModalBill.status}
-          </span>
+          <span class="info-label">Clinic:</span>
+          <span class="info-val">DVS Clinic</span>
         </div>
       </div>
     </div>
@@ -1494,47 +1495,41 @@ export default function BillsPage() {
                     </div>
                   </div>
 
-                  {/* Right Column: CLINIC / BILL INFORMATION */}
+                  {/* Right Column: DOCTOR INFORMATION */}
                   <div className="border-l-4 border-teal-600 bg-slate-50/70 p-4 rounded-r-lg space-y-2">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800 border-b border-gray-200/60 pb-1">
-                      CLINIC / BILL INFORMATION
+                      DOCTOR INFORMATION
                     </h3>
                     <div className="space-y-1 text-xs">
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-gray-500 font-medium">Bill Number:</span>
-                        <span className="font-mono font-extrabold text-teal-900 text-sm">
-                          #{receiptModalBill.bill_id}
+                      <div>
+                        <span className="text-gray-400 text-[11px] block">Doctor Name</span>
+                        <span className="font-bold text-gray-900 text-sm">
+                          {(() => {
+                            const rawDoctor = receiptModalBill.handled_by_name || (currentUser?.name ? currentUser.name : '');
+                            return rawDoctor
+                              ? (rawDoctor.toLowerCase().startsWith('dr.') || rawDoctor.toLowerCase().startsWith('dr ')
+                                  ? rawDoctor
+                                  : `Dr. ${rawDoctor}`)
+                              : 'Dr. DVS Specialist';
+                          })()}
                         </span>
                       </div>
-                      <div className="flex justify-between items-baseline">
-                        <span className="text-gray-500 font-medium">Date &amp; Time:</span>
+                      <div className="flex justify-between items-baseline pt-1">
+                        <span className="text-gray-500 font-medium">Specialization:</span>
                         <span className="font-semibold text-gray-900">
-                          {new Date(receiptModalBill.date).toLocaleString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
+                          General Physician
                         </span>
                       </div>
                       <div className="flex justify-between items-baseline">
-                        <span className="text-gray-500 font-medium">Payment Mode:</span>
+                        <span className="text-gray-500 font-medium">Department:</span>
                         <span className="font-semibold text-gray-900">
-                          {receiptModalBill.payment_mode}
+                          OPD / General Medicine
                         </span>
                       </div>
-                      <div className="flex justify-between items-center pt-0.5">
-                        <span className="text-gray-500 font-medium">Payment Status:</span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider ${
-                            receiptModalBill.status === 'Paid'
-                              ? 'bg-teal-100 text-teal-800 border border-teal-300'
-                              : 'bg-amber-100 text-amber-800 border border-amber-300'
-                          }`}
-                        >
-                          {receiptModalBill.status}
+                      <div className="flex justify-between items-baseline">
+                        <span className="text-gray-500 font-medium">Clinic:</span>
+                        <span className="font-semibold text-gray-900">
+                          DVS Clinic
                         </span>
                       </div>
                     </div>
