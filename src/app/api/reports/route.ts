@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, hasRole } from '@/lib/auth';
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (user.role !== 'Doctor' && user.role !== 'Admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!hasRole(user.role, 'Doctor')) {
+    return NextResponse.json({ error: 'Forbidden: Doctor access required' }, { status: 403 });
   }
 
   try {

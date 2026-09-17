@@ -33,25 +33,30 @@ export async function middleware(request: NextRequest) {
 
   try {
     const { payload } = await jwtVerify(sessionCookie, SECRET_KEY);
-    const role = payload.role as string;
+    const roleStr = (payload.role as string) || '';
+    const roles = roleStr.split(',').map((r) => r.trim());
+    const isAdmin = roles.includes('Admin');
+    const isDoctor = roles.includes('Doctor') || isAdmin;
+    const isReceptionist = roles.includes('Receptionist') || isAdmin;
+    const isPharmacy = roles.includes('Pharmacy') || isAdmin;
 
     // Doctor section
-    if (isDoctorRoute && role !== 'Doctor' && role !== 'Admin') {
+    if (isDoctorRoute && !isDoctor) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
     // Bills section
-    if (isBillsRoute && role !== 'Receptionist' && role !== 'Admin') {
+    if (isBillsRoute && !isReceptionist) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
     // Pharmacy section
-    if (isPharmacyRoute && role !== 'Pharmacy' && role !== 'Admin') {
+    if (isPharmacyRoute && !isPharmacy) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 
     // Admin section
-    if (isAdminRoute && role !== 'Admin') {
+    if (isAdminRoute && !isAdmin) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
 

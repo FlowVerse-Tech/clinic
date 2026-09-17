@@ -42,6 +42,17 @@ export default function Navbar({ user }: NavbarProps) {
     }
   };
 
+  const roles = user?.role
+    ? user.role.split(',').map((r) => r.trim()).filter(Boolean)
+    : [];
+  const isAdmin = roles.includes('Admin');
+  const isDoctor = roles.includes('Doctor') || isAdmin;
+  const isReceptionist = roles.includes('Receptionist') || isAdmin;
+  const isPharmacy = roles.includes('Pharmacy') || isAdmin;
+
+  const accessibleCount = (isAdmin ? 1 : 0) + (isDoctor ? 1 : 0) + (isReceptionist ? 1 : 0) + (isPharmacy ? 1 : 0);
+  const showNav = accessibleCount > 1 || isAdmin;
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -54,49 +65,57 @@ export default function Navbar({ user }: NavbarProps) {
               </span>
             </Link>
 
-            {/* Admin quick navigation bar */}
-            {user?.role === 'Admin' && (
+            {/* Quick navigation bar for multi-role / admin users */}
+            {user && showNav && (
               <nav className="hidden md:flex space-x-2 text-sm font-medium">
-                <Link
-                  href="/admin"
-                  className={`px-3 py-1.5 rounded-md ${
-                    pathname === '/admin'
-                      ? 'bg-gray-900 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Admin
-                </Link>
-                <Link
-                  href="/doctor"
-                  className={`px-3 py-1.5 rounded-md ${
-                    pathname === '/doctor'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Doctor
-                </Link>
-                <Link
-                  href="/bills"
-                  className={`px-3 py-1.5 rounded-md ${
-                    pathname === '/bills'
-                      ? 'bg-emerald-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Billing
-                </Link>
-                <Link
-                  href="/pharmacy"
-                  className={`px-3 py-1.5 rounded-md ${
-                    pathname === '/pharmacy'
-                      ? 'bg-amber-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Pharmacy
-                </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                      pathname === '/admin'
+                        ? 'bg-gray-900 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
+                {isDoctor && (
+                  <Link
+                    href="/doctor"
+                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                      pathname === '/doctor'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Doctor Desk
+                  </Link>
+                )}
+                {isReceptionist && (
+                  <Link
+                    href="/bills"
+                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                      pathname === '/bills'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Billing &amp; Invoices
+                  </Link>
+                )}
+                {isPharmacy && (
+                  <Link
+                    href="/pharmacy"
+                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                      pathname === '/pharmacy'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Pharmacy Stock
+                  </Link>
+                )}
               </nav>
             )}
           </div>
@@ -105,19 +124,24 @@ export default function Navbar({ user }: NavbarProps) {
           <div className="flex items-center space-x-4">
             {user ? (
               <>
-                <div className="flex items-center space-x-2 text-sm">
+                <div className="flex items-center space-x-2 text-sm flex-wrap gap-y-1">
                   <span className="font-semibold text-gray-900">{user.name}</span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getRoleBadgeColor(
-                      user.role
-                    )}`}
-                  >
-                    {user.role}
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {roles.map((r) => (
+                      <span
+                        key={r}
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getRoleBadgeColor(
+                          r
+                        )}`}
+                      >
+                        {r}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md transition-colors cursor-pointer"
                 >
                   Sign out
                 </button>

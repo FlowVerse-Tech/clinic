@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, hasRole } from '@/lib/auth';
 
 export async function POST(
   request: Request,
   props: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'Admin') {
+  if (!user || !hasRole(user.role, 'Admin')) {
     return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
   }
 

@@ -43,6 +43,33 @@ interface MedicineSummary {
   rate?: string | number;
 }
 
+const ROLE_OPTIONS = [
+  {
+    id: 'Doctor',
+    label: 'Doctor',
+    badge: 'bg-blue-100 text-blue-800 border-blue-200',
+    desc: 'Consultation Desk, Patient EHR, visits & prescriptions (/doctor)',
+  },
+  {
+    id: 'Receptionist',
+    label: 'Receptionist',
+    badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    desc: 'Patient Registration, Billing & Itemized Invoices (/bills)',
+  },
+  {
+    id: 'Pharmacy',
+    label: 'Pharmacy',
+    badge: 'bg-amber-100 text-amber-800 border-amber-200',
+    desc: 'Pharmacy Inventory, Medicine Stock & Dispensary (/pharmacy)',
+  },
+  {
+    id: 'Admin',
+    label: 'Admin',
+    badge: 'bg-purple-100 text-purple-800 border-purple-200',
+    desc: 'Full administrative controls, user management & system audits (/admin)',
+  },
+];
+
 export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'patients' | 'bills' | 'stock'>('users');
@@ -63,7 +90,7 @@ export default function AdminPage() {
     username: '',
     password: '',
     name: '',
-    role: 'Doctor',
+    roles: ['Doctor'] as string[],
     active: true,
   });
   const [createError, setCreateError] = useState('');
@@ -71,9 +98,29 @@ export default function AdminPage() {
 
   // Edit User modal
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', role: '', active: true });
+  const [editForm, setEditForm] = useState({ name: '', roles: [] as string[], active: true });
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
+
+  const toggleCreateRole = (roleKey: string) => {
+    setCreateForm((prev) => {
+      const exists = prev.roles.includes(roleKey);
+      const newRoles = exists
+        ? prev.roles.filter((r) => r !== roleKey)
+        : [...prev.roles, roleKey];
+      return { ...prev, roles: newRoles };
+    });
+  };
+
+  const toggleEditRole = (roleKey: string) => {
+    setEditForm((prev) => {
+      const exists = prev.roles.includes(roleKey);
+      const newRoles = exists
+        ? prev.roles.filter((r) => r !== roleKey)
+        : [...prev.roles, roleKey];
+      return { ...prev, roles: newRoles };
+    });
+  };
 
   // Reset Password modal
   const [resetUser, setResetUser] = useState<UserAccount | null>(null);
@@ -130,6 +177,12 @@ export default function AdminPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError('');
+
+    if (createForm.roles.length === 0) {
+      setCreateError('Please select at least one role for this user.');
+      return;
+    }
+
     setCreateLoading(true);
 
     try {
@@ -147,7 +200,7 @@ export default function AdminPage() {
       }
 
       setShowCreateModal(false);
-      setCreateForm({ username: '', password: '', name: '', role: 'Doctor', active: true });
+      setCreateForm({ username: '', password: '', name: '', roles: ['Doctor'], active: true });
       loadUsers();
     } catch (err: any) {
       setCreateError('Error creating user: ' + err.message);
@@ -178,6 +231,12 @@ export default function AdminPage() {
     if (!editingUser) return;
 
     setEditError('');
+
+    if (editForm.roles.length === 0) {
+      setEditError('Please select at least one role for this user.');
+      return;
+    }
+
     setEditLoading(true);
 
     try {
@@ -352,9 +411,24 @@ export default function AdminPage() {
                         <td className="px-4 py-3 font-semibold text-gray-900">{u.username}</td>
                         <td className="px-4 py-3 text-gray-700">{u.name}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getRoleBadge(u.role)}`}>
-                            {u.role}
-                          </span>
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {u.role ? (
+                              u.role
+                                .split(',')
+                                .map((r) => r.trim())
+                                .filter(Boolean)
+                                .map((r) => (
+                                  <span
+                                    key={r}
+                                    className={`px-2 py-0.5 rounded text-xs font-semibold border ${getRoleBadge(r)}`}
+                                  >
+                                    {r}
+                                  </span>
+                                ))
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -374,7 +448,10 @@ export default function AdminPage() {
                           <button
                             onClick={() => {
                               setEditingUser(u);
-                              setEditForm({ name: u.name, role: u.role, active: u.active });
+                              const userRoles = u.role
+                                ? u.role.split(',').map((r) => r.trim()).filter(Boolean)
+                                : [];
+                              setEditForm({ name: u.name, roles: userRoles, active: u.active });
                             }}
                             className="text-xs text-blue-600 hover:underline font-medium"
                           >
@@ -612,17 +689,41 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Role *</label>
-                <select
-                  value={createForm.role}
-                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:ring-2 focus:ring-purple-500 bg-white focus:outline-none"
-                >
-                  <option value="Doctor">Doctor (access to /doctor)</option>
-                  <option value="Receptionist">Receptionist (access to /bills)</option>
-                  <option value="Pharmacy">Pharmacy Staff (access to /pharmacy)</option>
-                  <option value="Admin">Admin (access to /admin and all)</option>
-                </select>
+                <label className="block font-semibold text-gray-700 uppercase mb-1.5">
+                  Assign Roles * <span className="font-normal text-gray-400 normal-case">(Select all that apply)</span>
+                </label>
+                <div className="space-y-2 border border-gray-200 rounded-lg p-2.5 bg-gray-50/50">
+                  {ROLE_OPTIONS.map((opt) => {
+                    const isSelected = createForm.roles.includes(opt.id);
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => toggleCreateRole(opt.id)}
+                        className={`flex items-start gap-2.5 p-2 rounded-md border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-50/80 border-purple-300'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by parent onClick
+                          className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900 text-xs">{opt.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${opt.badge}`}>
+                              {opt.id}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5">{opt.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
@@ -697,17 +798,41 @@ export default function AdminPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-gray-700 uppercase mb-1">Role</label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-900 focus:ring-2 focus:ring-purple-500 bg-white focus:outline-none"
-                >
-                  <option value="Doctor">Doctor</option>
-                  <option value="Receptionist">Receptionist</option>
-                  <option value="Pharmacy">Pharmacy</option>
-                  <option value="Admin">Admin</option>
-                </select>
+                <label className="block font-semibold text-gray-700 uppercase mb-1.5">
+                  Assigned Roles * <span className="font-normal text-gray-400 normal-case">(Select all that apply)</span>
+                </label>
+                <div className="space-y-2 border border-gray-200 rounded-lg p-2.5 bg-gray-50/50">
+                  {ROLE_OPTIONS.map((opt) => {
+                    const isSelected = editForm.roles.includes(opt.id);
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => toggleEditRole(opt.id)}
+                        className={`flex items-start gap-2.5 p-2 rounded-md border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-purple-50/80 border-purple-300'
+                            : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by parent onClick
+                          className="mt-0.5 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900 text-xs">{opt.label}</span>
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold border ${opt.badge}`}>
+                              {opt.id}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-0.5">{opt.desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="flex items-center gap-2 pt-2">

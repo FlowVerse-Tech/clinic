@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, hasRole, parseRoles, formatRoles, VALID_ROLES } from '@/lib/auth';
 
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'Admin') {
+  if (!user || !hasRole(user.role, 'Admin')) {
     return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
   }
 
@@ -25,28 +25,32 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
-  if (!user || user.role !== 'Admin') {
+  if (!user || !hasRole(user.role, 'Admin')) {
     return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
   }
 
   try {
     const body = await request.json();
-    const { username, password, role, name, active } = body;
+    const { username, password, role, roles, name, active } = body;
 
-    if (!username || !password || !role || !name) {
+    const rawRoles = roles || role;
+    const assignedRoles = parseRoles(rawRoles);
+
+    if (!username || !password || !name) {
       return NextResponse.json(
-        { error: 'Username, password, role, and name are required.' },
+        { error: 'Username, password, and name are required.' },
         { status: 400 }
       );
     }
 
-    const validRoles = ['Doctor', 'Receptionist', 'Pharmacy', 'Admin'];
-    if (!validRoles.includes(role)) {
+    if (assignedRoles.length === 0) {
       return NextResponse.json(
-        { error: `Invalid role. Must be one of: ${validRoles.join(', ')}` },
+        { error: `Please assign at least one valid role: ${VALID_ROLES.join(', ')}` },
         { status: 400 }
       );
     }
+
+    const formattedRole = formatRoles(assignedRoles);
 
     // Check duplicate username
     const checkUser = await query(
@@ -68,7 +72,7 @@ export async function POST(request: Request) {
       `INSERT INTO users (username, password, role, name, active)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING user_id, username, role, name, active, created_at`,
-      [username.trim(), hashedPassword, role, name.trim(), isActive]
+      [username.trim(), hashedPassword, formattedRole, name.trim(), isActive]
     );
 
     return NextResponse.json({

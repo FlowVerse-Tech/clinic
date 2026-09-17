@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
   user_id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  role VARCHAR(50) NOT NULL, -- 'Doctor', 'Receptionist', 'Pharmacy', 'Admin'
+  role VARCHAR(255) NOT NULL, -- e.g. 'Doctor', 'Receptionist', 'Pharmacy', 'Admin', or 'Doctor, Receptionist'
   name VARCHAR(255) NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
